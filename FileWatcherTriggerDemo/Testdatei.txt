@@ -1,0 +1,3 @@
+Testdatei für FileWatcherTrigger.
+Mit Editor öffnen und mehrfach abspeichern, jeder Speichervorgang sollte den Trigger auslösen.
+
