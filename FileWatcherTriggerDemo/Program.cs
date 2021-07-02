@@ -17,17 +17,17 @@ namespace FileWatcherTriggerDemo
             FileWatcherTrigger.FileWatcherTrigger trigger = new FileWatcherTrigger.FileWatcherTrigger();
             Console.WriteLine(@"Trigger.Start {0}", triggerParameters);
             trigger.Start(null, triggerParameters, trigger_TriggerIt);
-            Console.WriteLine("stop trigger mit enter");
+            Console.WriteLine("Stopp Trigger mit Enter");
             Console.ReadLine();
             trigger.Stop(null, trigger_TriggerIt);
-            Console.WriteLine("Trigger stopped");
+            Console.WriteLine("Trigger gestoppt");
             Console.ReadLine();
             logger.Dispose();
         }
 
         static void trigger_TriggerIt(TreeEvent source)
         {
-            Console.WriteLine("{0:HH:mm:ss} Trigger feuert.", DateTime.Now);
+            Console.WriteLine($"{DateTime.Now:HH:mm:ss} {source.Name} feuert.");
         }
     }
 }

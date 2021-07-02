@@ -19,10 +19,9 @@ namespace FileWatcherTrigger
     /// starten und stoppen kann.
     /// </summary>
     /// <remarks>
-    /// File: FileWatcherTrigger.cs
     /// Autor: Erik Nagel
     ///
-    /// 30.12.2013 Erik Nagel: erstellt
+    /// 30.12.2013 Erik Nagel: erstellt.
     /// 29.03.2014 Erik Nagel: für die Verarbeitung von mehreren alternativen Pfaden erweitert.
     /// 25.06.2016 Erik Nagel: Try-Catch in OnTriggerFired und NULL-Check in Info;
     ///                        bei Exception alle FileSystemWatcher canceln, auf null setzen
@@ -30,8 +29,9 @@ namespace FileWatcherTrigger
     /// 25.07.2016 Erik Nagel: In foreach-Schleifen wegen thread-safety linq.ToList implementiert.
     /// 28.07.2016 Erik Nagel: ToList reicht nicht wg. Empty List Fehler - Lock und Copy implementiert.
     /// 13.08.2019 Erik Nagel: Zusätzlichen Timer implementiert.
+    /// 27.06.2021 Erik Nagel: auf neue Basisklasse TriggerBase angepasst.
     /// </remarks>
-    public class FileWatcherTrigger : INodeTrigger, IDisposable
+    public class FileWatcherTrigger : TriggerBase, IDisposable
     {
         #region public members
 
@@ -97,11 +97,11 @@ namespace FileWatcherTrigger
         #region INodeTriggerImplementation
 
         /// <summary>
-        /// Enthält Informationen zum besitzenden Trigger.
-        /// Implementiert sind NextRun und NextRunInfo. Für das Hinzufügen weiterer
-        /// Informationen kann diese Klasse abgeleitet werden.
+        /// Enthält weitergehende Informationen zum Trigger.
+        /// Überschreibt TriggerBase.TriggerInfo um für diese Trigger-Variante
+        /// spezifische Informationen auszugeben.
         /// </summary>
-        public TriggerInfo Info
+        public override TriggerInfo Info
         {
             get
             {
@@ -122,8 +122,8 @@ namespace FileWatcherTrigger
                 }
                 if (this._eventTimer != null && this._eventTimer.Enabled)
                 {
-                    info = info + " oder: " + this._nextTimerStart.ToString();
-                    this._info.NextRun = this._nextTimerStart;
+                    info = info + " oder: " + this._nextStart.ToString();
+                    this._info.NextRun = this._nextStart;
                 }
                 else
                 {
@@ -141,18 +141,86 @@ namespace FileWatcherTrigger
         /// Startet den Trigger; vorher sollte sich der Consumer in TriggerIt eingehängt haben.
         /// </summary>
         /// <param name="triggerController">Das Objekt, das den Trigger aufruft.</param>
-        /// <param name="triggerParameters">Pfad der zu beobachtenden Datei.</param>
+        /// <param name="triggerParameters">Zeit bis zum ersten Start und Intervall durch Pipe ('|') getrennt.
+        /// Die Zeitangaben bestehen aus Einheit und Wert durch Doppelpunkt getrennt.
+        /// Einheiten sind: "MS" Millisekunden, "S" Sekunden, "M" Minuten, "H" Stunden und "D" Tage.</param>
         /// <param name="triggerIt">Die aufzurufende Callback-Routine, wenn der Trigger feuert.</param>
         /// <returns>True, wenn der Trigger durch diesen Aufruf tatsächlich gestartet wurde.</returns>
-        public bool Start(object triggerController, object triggerParameters, Action<TreeEvent> triggerIt)
+        public override bool Start(object triggerController, object triggerParameters, Action<TreeEvent> triggerIt)
         {
+            base.Start(triggerController, triggerParameters, triggerIt);
+
+            // Trigger-spezifischer Code - Anfang
+            if (this._eventTimer != null)
+            {
+                this._lastStart = DateTime.Now;
+                this._nextStart = this._lastStart.AddMilliseconds(this._timerInterval);
+                this._eventTimer.Start();
+            }
+            return this.setupTriggers();
+            // Trigger-spezifischer Code - Ende
+        }
+
+        /// <summary>
+        /// Stoppt den Trigger.
+        /// </summary>
+        /// <param name="triggerController">Das Objekt, das den Trigger definiert.</param>
+        /// <param name="triggerIt">Die aufzurufende Callback-Routine, wenn der Trigger feuert.</param>
+        public override void Stop(object triggerController, Action<TreeEvent> triggerIt)
+        {
+            if (this._eventTimer != null)
+            {
+                this._eventTimer.Stop();
+            }
             this.setControllerInfo(triggerController);
+            foreach (FileSystemWatcherTriggerControl triggerControl
+              in DictionaryThreadSafeCopy<FileSystemWatcher, FileSystemWatcherTriggerControl>
+                .GetDictionaryValuesThreadSafeCopy(this._fileSystemWatchers))
+            {
+                if (triggerControl.WatcherTerminator != null)
+                {
+                    triggerControl.WatcherTerminator.Cancel();
+                }
+            }
+            // Weitergabe des Stop-Aufrufs an die Basisklasse
+            base.Stop(triggerController, triggerIt);
 
+            this.Log("Watchers stopped!");
+        }
+
+        #endregion INodeTriggerImplementation
+
+        /// <summary>
+        /// Konstruktor - initialisiert die Liste von FileWatchern.
+        /// </summary>
+        public FileWatcherTrigger() : base()
+        {
+            this.TriggerName = "FileWatcherTrigger";
+            this._me = ++FileWatcherTrigger._ids;
+            this._validDirectories = new List<string>();
+            this._fileSystemWatchers = new Dictionary<FileSystemWatcher, FileSystemWatcherTriggerControl>();
+        }
+
+        #endregion public members
+
+        #region protected members
+
+        /// <summary>
+        /// Diese Routine wird von der Routine "Start" angesprungen, bevor der Trigger gestartet wird.
+        /// Erweitert TriggerBase.EvaluateParametersOrFail; dort wird nur der Parameter "|UserRun"
+        /// ausgewertet und die Variable "_isUserRun" entsprechend gesetzt.
+        /// </summary>
+        /// <param name="triggerParameters">Die von Vishnu weitergeleiteten Parameter aus der JobDescription.xml.</param>
+        /// <param name="triggerController">Der Knoten, dem dieser Trigger zugeordnet ist.</param>
+        protected override void EvaluateParametersOrFail(ref object triggerParameters, object triggerController)
+        {
+            base.EvaluateParametersOrFail(ref triggerParameters, triggerController);
+
+            this.setControllerInfo(triggerController);
             string triggerParametersString = triggerParameters.ToString();
-
             this._eventTimer = null;
-            this._lastTimerStart = DateTime.MinValue;
-            this._nextTimerStart = DateTime.MinValue;
+            this._lastStart = DateTime.MinValue;
+            this._nextStart = DateTime.MinValue;
             this._info = new TriggerInfo() { NextRun = DateTime.MinValue, NextRunInfo = null };
             this._textPattern = @"(?:MS|S|M|H|D):\d+";
             this._compiledPattern = new Regex(_textPattern);
@@ -224,60 +292,10 @@ namespace FileWatcherTrigger
             {
                 throw new DirectoryNotFoundException(String.Format("Es wurde kein gültiges Verzeichnis gefunden ({0}).", triggerParameters.ToString()));
             }
-            this._triggerIt += triggerIt;
-            if (this._eventTimer != null)
-            {
-                this._lastTimerStart = DateTime.Now;
-                this._nextTimerStart = this._lastTimerStart.AddMilliseconds(this._timerInterval);
-                this._eventTimer.Start();
-            }
-            return this.setupTriggers();
         }
 
         /// <summary>
-        /// Stoppt den Trigger.
-        /// </summary>
-        /// <param name="triggerController">Das Objekt, das den Trigger aufruft.</param>
-        /// <param name="triggerIt">Die aufzurufende Callback-Routine, wenn der Trigger feuert.</param>
-        public void Stop(object triggerController, Action<TreeEvent> triggerIt)
-        {
-            if (this._eventTimer != null)
-            {
-                this._eventTimer.Stop();
-            }
-            this.setControllerInfo(triggerController);
-            foreach (FileSystemWatcherTriggerControl triggerControl
-              in DictionaryThreadSafeCopy<FileSystemWatcher, FileSystemWatcherTriggerControl>
-                .GetDictionaryValuesThreadSafeCopy(this._fileSystemWatchers))
-            {
-                if (triggerControl.WatcherTerminator != null)
-                {
-                    triggerControl.WatcherTerminator.Cancel();
-                }
-            }
-            this._triggerIt -= triggerIt;
-            this.Log("Watcher stopped!");
-        }
-
-        #endregion INodeTriggerImplementation
-
-        /// <summary>
-        /// Konstruktor - initialisiert die Liste von FileWatchern.
-        /// </summary>
-        public FileWatcherTrigger()
-        {
-            this._me = ++FileWatcherTrigger._ids;
-            this._validDirectories = new List<string>();
-            this._fileSystemWatchers = new Dictionary<FileSystemWatcher, FileSystemWatcherTriggerControl>();
-            this._info = new TriggerInfo() { NextRun = DateTime.MinValue, NextRunInfo = null };
-        }
-
-        #endregion public members
-
-        #region protected members
-
-        /// <summary>
-        /// Trigger-Event auslösen.
+        /// Diese Routine löst das Trigger-Event aus.
         /// </summary>
         protected void OnTriggerFired(FileSystemWatcher fileSystemWatcher, EventPattern<FileSystemEventArgs> ep)
         {
@@ -292,14 +310,7 @@ namespace FileWatcherTrigger
                 {
                     fileSystemWatcher.EnableRaisingEvents = false;
                 }
-                if (this._triggerIt != null)
-                {
-                    this._triggerIt(null);
-                }
-                else
-                {
-                    this.Log("OnTriggerFired this._triggerIt == null");
-                }
+                base.OnTriggerFired(0);
                 Thread.Sleep(300); // Doppel-Events aussitzen.
                 if (fileSystemWatcher != null)
                 {
@@ -307,8 +318,8 @@ namespace FileWatcherTrigger
                 }
                 if (this._eventTimer != null)
                 {
-                    this._lastTimerStart = DateTime.Now;
-                    this._nextTimerStart = this._lastTimerStart.AddMilliseconds(this._timerInterval);
+                    this._lastStart = DateTime.Now;
+                    this._nextStart = this._lastStart.AddMilliseconds(this._timerInterval);
                     this._eventTimer.Start();
                 }
             }
@@ -351,7 +362,6 @@ namespace FileWatcherTrigger
         private int _me;
         private string _controllerInfo;
         private static object _lockMe = new object();
-        private TriggerInfo _info;
         private bool _initialFire;
         private string _fileName;
 
@@ -359,13 +369,6 @@ namespace FileWatcherTrigger
         private int _timerInterval;
         private string _textPattern;
         private Regex _compiledPattern;
-        private DateTime _lastTimerStart;
-        private DateTime _nextTimerStart;
-
-        /// <summary>
-        /// Wird ausgelöst, wenn das Trigger-Ereignis (z.B. Dateiänderung) eintritt. 
-        /// </summary>
-        private event Action<TreeEvent> _triggerIt;
 
         private class FileSystemWatcherTriggerControl
         {
@@ -408,13 +411,12 @@ namespace FileWatcherTrigger
                         WatchedFileName = this._fileName
                     };
                     this._fileSystemWatchers.Add(fileSystemWatcher, control);
-                    token.Register(() => cancelNotification());
+                    token.Register(() => CancelNotification());
                     token.Register(watcherTask.Subscribe(ep => this.OnTriggerFired(fileSystemWatcher, ep)).Dispose);
                     fileSystemWatcher.EnableRaisingEvents = true;
                 }
                 if (this._initialFire && this._fileSystemWatchers.Count > 0)
                 {
-                    // TODO: Fehlerquelle beheben - this._fileSystemWatchers war leer
                     this.OnTriggerFired(this._fileSystemWatchers.First().Key, new EventPattern<FileSystemEventArgs>(this,
                       new FileSystemEventArgs(WatcherChangeTypes.Changed,
                         this._fileSystemWatchers.First().Value.WatchedDirectory,
@@ -434,7 +436,7 @@ namespace FileWatcherTrigger
         }
 
         // Informiert über den Abbruch der Verarbeitung.
-        private void cancelNotification()
+        private void CancelNotification()
         {
             this.Log("cancelNotification!");
         }
