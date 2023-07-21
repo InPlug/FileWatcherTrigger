@@ -81,7 +81,7 @@ namespace FileWatcherTrigger
                     }
                 }
             }
-            this._fileSystemWatchers.Clear();
+            this._fileSystemWatchers?.Clear();
         }
 
         /// <summary>
@@ -101,7 +101,7 @@ namespace FileWatcherTrigger
         /// Überschreibt TriggerBase.TriggerInfo um für diese Trigger-Variante
         /// spezifische Informationen auszugeben.
         /// </summary>
-        public override TriggerInfo Info
+        public override TriggerInfo? Info
         {
             get
             {
@@ -146,7 +146,7 @@ namespace FileWatcherTrigger
         /// Einheiten sind: "MS" Millisekunden, "S" Sekunden, "M" Minuten, "H" Stunden und "D" Tage.</param>
         /// <param name="triggerIt">Die aufzurufende Callback-Routine, wenn der Trigger feuert.</param>
         /// <returns>True, wenn der Trigger durch diesen Aufruf tatsächlich gestartet wurde.</returns>
-        public override bool Start(object triggerController, object triggerParameters, Action<TreeEvent> triggerIt)
+        public override bool Start(object? triggerController, object? triggerParameters, Action<TreeEvent> triggerIt)
         {
             base.Start(triggerController, triggerParameters, triggerIt);
 
@@ -166,7 +166,7 @@ namespace FileWatcherTrigger
         /// </summary>
         /// <param name="triggerController">Das Objekt, das den Trigger definiert.</param>
         /// <param name="triggerIt">Die aufzurufende Callback-Routine, wenn der Trigger feuert.</param>
-        public override void Stop(object triggerController, Action<TreeEvent> triggerIt)
+        public override void Stop(object? triggerController, Action<TreeEvent> triggerIt)
         {
             if (this._eventTimer != null)
             {
@@ -212,12 +212,12 @@ namespace FileWatcherTrigger
         /// </summary>
         /// <param name="triggerParameters">Die von Vishnu weitergeleiteten Parameter aus der JobDescription.xml.</param>
         /// <param name="triggerController">Der Knoten, dem dieser Trigger zugeordnet ist.</param>
-        protected override void EvaluateParametersOrFail(ref object triggerParameters, object triggerController)
+        protected override void EvaluateParametersOrFail(ref object? triggerParameters, object? triggerController)
         {
             base.EvaluateParametersOrFail(ref triggerParameters, triggerController);
 
             this.setControllerInfo(triggerController);
-            string triggerParametersString = triggerParameters.ToString();
+            string triggerParametersString = triggerParameters?.ToString() ?? "";
             this._eventTimer = null;
             this._lastStart = DateTime.MinValue;
             this._nextStart = DateTime.MinValue;
@@ -249,7 +249,7 @@ namespace FileWatcherTrigger
 
             string[] para = (triggerParametersString + "|").Split('|');
             this._initialFire = false;
-            string firstValidFile = null;
+            string? firstValidFile = null;
             this._fileName = null;
             for (int i = 0; i < para.Count(); i++)
             {
@@ -264,17 +264,17 @@ namespace FileWatcherTrigger
                     {
                         if (firstValidFile == null)
                         {
-                            if (_fileName == null) // der erste Parameter ist inclusive Dateiname
+                            if (this._fileName == null) // der erste Parameter ist inclusive Dateiname
                             {
-                                _fileName = Path.GetFileName(paraString);
-                                paraString = Path.GetDirectoryName(paraString);
+                                this._fileName = Path.GetFileName(paraString);
+                                paraString = Path.GetDirectoryName(paraString) ?? "";
                             }
                             foreach (string path in paraString.Split(','))
                             {
                                 string workerPath = path.Trim(' ');
-                                if (File.Exists(Path.Combine(workerPath, _fileName)))
+                                if (File.Exists(Path.Combine(workerPath, this._fileName)))
                                 {
-                                    firstValidFile = Path.Combine(workerPath, _fileName);
+                                    firstValidFile = Path.Combine(workerPath, this._fileName);
                                     this._validDirectories.Clear();
                                     this._validDirectories.Add(workerPath);
                                     break;
@@ -290,7 +290,9 @@ namespace FileWatcherTrigger
             }
             if (this._validDirectories.Count == 0)
             {
-                throw new DirectoryNotFoundException(String.Format("Es wurde kein gültiges Verzeichnis gefunden ({0}).", triggerParameters.ToString()));
+                throw new DirectoryNotFoundException(
+                    String.Format("Es wurde kein gültiges Verzeichnis gefunden ({0}).",
+                    triggerParameters?.ToString()));
             }
         }
 
@@ -362,22 +364,28 @@ namespace FileWatcherTrigger
         private List<string> _validDirectories;
         private static int _ids = 0;
         private int _me;
-        private string _controllerInfo;
+        private string? _controllerInfo;
         private static object _lockMe = new object();
         private bool _initialFire;
-        private string _fileName;
+        private string? _fileName;
 
-        private System.Timers.Timer _eventTimer;
+        private System.Timers.Timer? _eventTimer;
         private int _timerInterval;
-        private string _textPattern;
-        private Regex _compiledPattern;
+        private string? _textPattern;
+        private Regex? _compiledPattern;
 
         private class FileSystemWatcherTriggerControl
         {
-            public IObservable<EventPattern<FileSystemEventArgs>> WatcherTask { get; set; }
-            public CancellationTokenSource WatcherTerminator { get; set; }
+            public IObservable<EventPattern<FileSystemEventArgs>>? WatcherTask { get; set; }
+            public CancellationTokenSource? WatcherTerminator { get; set; }
             public string WatchedDirectory { get; set; }
             public string WatchedFileName { get; set; }
+
+            public FileSystemWatcherTriggerControl()
+            {
+                this.WatchedDirectory = "";
+                this.WatchedFileName = "";
+            }
         }
 
         private bool setupTriggers()
@@ -387,14 +395,15 @@ namespace FileWatcherTrigger
                 foreach (string watchedDirectory in EnumerableThreadSafeCopy<string>
                           .GetEnumerableThreadSafeCopy(this._validDirectories))
                 {
-                    FileSystemWatcher fileSystemWatcher = null;
-                    FileSystemWatcherTriggerControl control = null;
+                    FileSystemWatcher? fileSystemWatcher = null;
+                    FileSystemWatcherTriggerControl? control = null;
                     fileSystemWatcher
                       = new FileSystemWatcher
                       {
                           Path = watchedDirectory,
                           NotifyFilter = NotifyFilters.LastWrite,
-                          Filter = this._fileName,
+                          Filter = this._fileName ?? throw new ApplicationException(
+                              "Es wurde Kein Dateiname gefunden."),
                           IncludeSubdirectories = false,
                           EnableRaisingEvents = false
                       };
@@ -429,7 +438,7 @@ namespace FileWatcherTrigger
             return true;
         }
 
-        private void eventTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)
+        private void eventTimer_Elapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             this.OnTriggerFired(this._fileSystemWatchers.First().Key, new EventPattern<FileSystemEventArgs>(this,
               new FileSystemEventArgs(WatcherChangeTypes.Changed,
@@ -466,11 +475,11 @@ namespace FileWatcherTrigger
         /// TriggerController zu Logging-Zwecken.
         /// </summary>
         /// <param name="triggerController"></param>
-        private void setControllerInfo(object triggerController)
+        private void setControllerInfo(object? triggerController)
         {
             if (triggerController is IVishnuNode)
             {
-                IVishnuNode infoNode = triggerController as IVishnuNode;
+                IVishnuNode infoNode = (IVishnuNode)triggerController;
                 this._controllerInfo = string.Format("{0}/{1}, Type: {2}", infoNode.IdInfo, infoNode.NameInfo, infoNode.TypeInfo);
             }
             else
@@ -481,8 +490,9 @@ namespace FileWatcherTrigger
 
         private void Log(string message)
         {
-            TriggerInfo info = this.Info;
-            InfoController.Say(String.Format("#FWT#{0}, {1}, {2}\r\n{3}", this._me, this._controllerInfo, info.NextRunInfo, message));
+            TriggerInfo? info = this.Info;
+            InfoController.Say(String.Format("#FWT#{0}, {1}, {2}\r\n{3}",
+                this._me, this._controllerInfo, info?.NextRunInfo, message));
         }
 
         #endregion private members

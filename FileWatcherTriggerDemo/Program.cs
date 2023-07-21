@@ -1,11 +1,10 @@
-﻿using System;
-using Vishnu.Interchange;
-using NetEti.ApplicationControl;
+﻿using NetEti.ApplicationControl;
 using NetEti.Globals;
+using Vishnu.Interchange;
 
 namespace FileWatcherTriggerDemo
 {
-    public class Program
+    internal class Program
     {
         public static void Main(string[] args)
         {

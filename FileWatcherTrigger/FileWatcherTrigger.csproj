@@ -1,87 +1,55 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="12.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <VishnuRoot>$(ProjectDir)../../..</VishnuRoot>
-    <AssemblyRoot>$(VishnuRoot)/ReadyBin/Assemblies</AssemblyRoot>
+    <TargetFramework>net7.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
+    <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <PackageId>NetEti.$(AssemblyName)</PackageId>
+    <Title>$(AssemblyName) - Vshnu-Trigger: löst ein Event aus, wenn eine Datei geändert wird</Title>
+    <Description>$(AssemblyName) - Vshnu-Trigger: löst ein Event aus, wenn eine Datei geändert wird</Description>
+    <Authors>Erik Nagel</Authors>
+    <Company>NetEti</Company>
+    <Copyright>Copyright © $(Authors) 2013-2023</Copyright>
+    <AssemblyVersion>7.0.1.1</AssemblyVersion>
+    <FileVersion>7.0.1.1</FileVersion>
+    <PackageTags>NetEti Vishnu Plugin Trigger File Directory Change</PackageTags>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <AssemblyRoot>$(ProjectDir)../../../ReadyBin/Assemblies</AssemblyRoot>
   </PropertyGroup>
   <Import Project="$(ProjectDir)../../AddOn/proj/*" Condition="exists('$(ProjectDir)../../AddOn/proj')" />
-  <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProductVersion>8.0.30703</ProductVersion>
-    <SchemaVersion>2.0</SchemaVersion>
-    <ProjectGuid>{C305CE78-2E02-4DC2-A860-B72A11744AC7}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>FileWatcherTrigger</RootNamespace>
-    <AssemblyName>FileWatcherTrigger</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Debug\FileWatcherTrigger.XML</DocumentationFile>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
+
+	<Choose>
+  	<When Condition="!('$(TF_BUILD)' == 'true' Or '$(GITHUB_ACTIONS)' == 'true' Or '$(NETETI_CIB)' == 'true')">
+		  <ItemGroup>
+		    <Reference Include="NetEti.Global">
+		      <HintPath>$(AssemblyRoot)/NetEti.Global.dll</HintPath>
+		    </Reference>
+		    <Reference Include="NetEti.InfoController">
+		      <HintPath>$(AssemblyRoot)/NetEti.InfoController.dll</HintPath>
+		    </Reference>
+		    <Reference Include="NetEti.MVVMini">
+		      <HintPath>$(AssemblyRoot)/NetEti.MVVMini.dll</HintPath>
+		    </Reference>
+		    <Reference Include="Vishnu.Interchange">
+		      <HintPath>$(AssemblyRoot)/Vishnu.Interchange.dll</HintPath>
+		    </Reference>
+		  </ItemGroup>
+  	</When>
+    <Otherwise>
+		  <ItemGroup>
+		    <PackageReference Include="NetEti.Global" Version="1.0.0" />
+		    <PackageReference Include="NetEti.InfoController" Version="1.0.0" />
+		    <PackageReference Include="NetEti.MVVMini" Version="1.0.0" />
+		    <PackageReference Include="NetEti.Vishnu.Interchange" Version="1.0.0" />
+		  </ItemGroup>
+    </Otherwise>
+	</Choose>
+
   <ItemGroup>
-    <Reference Include="NetEti.Global, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(AssemblyRoot)\NetEti.Global.dll</HintPath>
-    </Reference>
-    <Reference Include="NetEti.InfoController, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>$(AssemblyRoot)\NetEti.InfoController.dll</HintPath>
-    </Reference>
-    <Reference Include="NetEti.MVVMini">
-      <HintPath>$(AssemblyRoot)\NetEti.MVVMini.dll</HintPath>
-    </Reference>
-    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="PresentationFramework" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Reactive">
-      <HintPath>..\System.Reactive.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-    <Reference Include="Vishnu.Interchange">
-      <HintPath>$(AssemblyRoot)\Vishnu.Interchange.dll</HintPath>
-    </Reference>
+    <PackageReference Include="System.Reactive" Version="5.0.0" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="FileWatcherTrigger.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-       Other similar extension points exist, see Microsoft.Common.targets.
-  <Target Name="BeforeBuild">
-  </Target>
-  <Target Name="AfterBuild">
-  </Target>
-  -->
+
 </Project>
