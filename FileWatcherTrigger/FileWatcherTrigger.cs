@@ -312,7 +312,7 @@ namespace FileWatcherTrigger
                 {
                     fileSystemWatcher.EnableRaisingEvents = false;
                 }
-                Thread.Sleep(300); // Doppel-Events aussitzen. 15.07.2022 Nagel+- hierhin verschoben, damit evetuell
+                Thread.Sleep(300); // Doppel-Events aussitzen. 15.07.2022 Nagel+- hierhin verschoben, damit eventuell
                                    // die Dateisystem-Operation noch abgeschlossen werden kann, bevor der Trigger feuert.
                 base.OnTriggerFired(0);
                 // 15.07.2022 Nagel+- auskommentiert: Thread.Sleep(300); // Doppel-Events aussitzen.
